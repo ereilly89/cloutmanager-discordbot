@@ -15,11 +15,6 @@ import random
 import re
 from collections import defaultdict
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
@@ -37,165 +32,14 @@ roles = db.roles
 settings = db.settings
 
 
-class StringContinuationImpossibleError(Exception):
-    pass
-
-    def generateDatabase(self, textSample, sentenceSep='[.!?\n]', n=2):
-        """ Generate word probability database from raw content string """
-        # I'm using the database to temporarily store word counts
-        textSample = _wordIter(textSample, sentenceSep)  # get an iterator for the 'sentences'
-        # We're using '' as special symbol for the beginning
-        # of a sentence
-        db[('',)][''] = 0.0
-        for line in textSample:
-            words = line.strip().split()  # split words in line
-            if len(words) == 0:
-                continue
-            # first word follows a sentence end
-            db[("",)][words[0]] += 1
-
-            for order in range(1, n + 1):
-                for i in range(len(words) - 1):
-                    if i + order >= len(words):
-                        continue
-                    word = tuple(words[i:i + order])
-                    db[word][words[i + order]] += 1
-
-                # last word precedes a sentence end
-                db[tuple(words[len(words) - order:len(words)])][""] += 1
-
-        # We've now got the db filled with parametrized word counts
-        # We still need to normalize this to represent probabilities
-        for word in self.db:
-            wordsum = 0
-            for nextword in self.db[word]:
-                wordsum += self.db[word][nextword]
-            if wordsum != 0:
-                for nextword in self.db[word]:
-                    self.db[word][nextword] /= wordsum
-
-    def dumpdb(self):
-        try:
-            with open(self.dbFilePath, 'wb') as dbfile:
-                pickle.dump(self.db, dbfile)
-            # It looks like db was written successfully
-            return True
-        except IOError:
-            logging.warn('Database file could not be written')
-            return False
-
-    def generateString(self):
-        """ Generate a "sentence" with the database of known text """
-        return self._accumulateWithSeed(('',))
-
-    def generateStringWithSeed(self, seed):
-        """ Generate a "sentence" with the database and a given word """
-        # using str.split here means we're contructing the list in memory
-        # but as the generated sentence only depends on the last word of the seed
-        # I'm assuming seeds tend to be rather short.
-        words = seed.split()
-        if (words[-1],) not in self.db:
-            # The only possible way it won't work is if the last word is not known
-            raise StringContinuationImpossibleError('Could not continue string: '
-                                                    + seed)
-        return self._accumulateWithSeed(words)
-
-    def _accumulateWithSeed(self, seed):
-        """ Accumulate the generated sentence with a given single word as a
-        seed """
-        nextWord = self._nextWord(seed)
-        sentence = list(seed) if seed else []
-        while nextWord:
-            sentence.append(nextWord)
-            nextWord = self._nextWord(sentence)
-        return ' '.join(sentence).strip()
-
-    def _nextWord(self, lastwords):
-        lastwords = tuple(lastwords)
-        if lastwords != ('',):
-            while lastwords not in self.db:
-                lastwords = lastwords[1:]
-                if not lastwords:
-                    return ''
-        probmap = self.db[lastwords]
-        sample = random.random()
-        # since rounding errors might make us miss out on some words
-        maxprob = 0.0
-        maxprobword = ""
-        for candidate in probmap:
-            # remember which word had the highest probability
-            # this is the word we'll default to if we can't find anythin else
-            if probmap[candidate] > maxprob:
-                maxprob = probmap[candidate]
-                maxprobword = candidate
-            if sample > probmap[candidate]:
-                sample -= probmap[candidate]
-            else:
-                return candidate
-        # getting here means we haven't found a matching word. :(
-        return maxprobword
-
-
-# {words: {word: prob}}
-# We have to define these as separate functions so they can be pickled.
-def _db_factory():
-    return defaultdict(_one_dict)
-
-
-def _one():
-    return 1.0
-
-
-def _one_dict():
-    return defaultdict(_one)
-
-
-def _wordIter(text, separator='.'):
-    """
-    An iterator over the 'words' in the given text, as defined by
-    the regular expression given as separator.
-    """
-    exp = re.compile(separator)
-    pos = 0
-    for occ in exp.finditer(text):
-        sub = text[pos:occ.start()].strip()
-        if sub:
-            yield sub
-        pos = occ.start() + 1
-    if pos < len(text):
-        # take case of the last part
-        sub = text[pos:].strip()
-        if sub:
-            yield sub
-
-
 # *** COMMANDS ***#
+
+
+# Role Manager Features***
 
 @client.command(help='get clout manager bot\'s latency.')
 async def ping(ctx):
     await ctx.send(f'Pong! {round(client.latency * 1000)}ms')
-
-
-""""
-@client.command()
-async def test(ctx):
-    markovChain = MarkovChain()
-
-@client.command()
-async def ga(ctx):
-    with open('goldenage.png', 'rb') as f:
-        picture = discord.File(f)
-        await ctx.channel.send('This server has officially entered a golden age', file=picture)
-
-@client.command()
-async def maintdown(ctx):
-    await ctx.channel.send("Clout Manager is temporarily down for maintenance.")
-
-
-@client.command()
-async def maintup(ctx):
-    await ctx.channel.send("Clout Manager is back up and running.")
-"""
 
 
 @client.command(help="returns a user's clout.")
@@ -247,6 +91,8 @@ async def cloutroles(ctx):
 async def deleteCloutRole(ctx, role):
     roles.delete_one({"role": role})
 
+    
+# BITCLOUT FEATURES*********************
 
 @client.command(help="bet your bitclout")
 async def bet(ctx, amount):
