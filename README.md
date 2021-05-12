@@ -1,0 +1,2 @@
+# bitclout-discordbot
+A discord bot built to introduce cryptocurrency to your discord server, simulating an actual blockchain.  Members can stay active in the server by "mining" one new block each day to claim their daily crypto; doing so will add a new block the chain along with all previous transactions since the last daily credits were claimed.  Daily rewards for mining new blocks are "halved" after a sufficient number of dailies have been claimed on the server.  These "halvings" continue until a hard cap of 10,000,000 credits have been reached.
